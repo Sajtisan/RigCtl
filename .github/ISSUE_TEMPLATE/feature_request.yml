@@ -1,0 +1,79 @@
+name: Feature request
+description: Propose an improvement or a new RigCtl capability.
+title: "[Feature] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        RigCtl targets a fixed set of subsystems rather than a generic plugin framework. Requests for initial-scope improvements and explicitly later work are both welcome when tied to a concrete use case.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Subsystem or component
+      options:
+        - CLI
+        - Daemon
+        - IPC
+        - Configuration / Profiles
+        - Mouse — Razer Viper V3 HyperSpeed
+        - Keyboard — Ajazz AK820 MAX
+        - Audio — PipeWire EQ
+        - Audio — Crusher ANC 2
+        - Packaging / Linux integration
+        - Quickshell UI (later)
+        - Fan control (later)
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: Describe the user need or limitation this request would address.
+      placeholder: I need to ... because ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Explain how RigCtl should behave from the user's perspective.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: hardware_protocol_impact
+    attributes:
+      label: Hardware or protocol impact
+      description: Does this request require device-specific work or new protocol research?
+      options:
+        - None
+        - Uses existing supported hardware behavior
+        - Requires additional research for an existing target device
+        - Proposes support for new hardware
+        - Unsure
+    validations:
+      required: true
+
+  - type: input
+    id: hardware
+    attributes:
+      label: Relevant hardware
+      description: If hardware is involved, provide the exact model and firmware version when known.
+      placeholder: Device model; firmware version
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives or workarounds
+      description: Describe any current workaround or alternative you considered.
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context
+      description: Add examples, mockups, or references that clarify the request.

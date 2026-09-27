@@ -1,0 +1,122 @@
+name: Hardware or protocol research
+description: Share device observations, capability tests, or protocol findings relevant to RigCtl.
+title: "[Research] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for evidence about target hardware and protocols. A submission records an observation; it is not automatically treated as verified behavior.
+
+        Do not include credentials, pairing keys, authentication secrets, unnecessary private identifiers, personal data, or unrelated application traffic. Sanitize packet captures and logs before posting.
+
+  - type: dropdown
+    id: device
+    attributes:
+      label: Device or research area
+      options:
+        - Razer Viper V3 HyperSpeed / OpenRazer
+        - Ajazz AK820 MAX
+        - Skullcandy Crusher ANC 2
+        - PipeWire EQ behavior
+        - Other directly relevant hardware
+    validations:
+      required: true
+
+  - type: input
+    id: firmware
+    attributes:
+      label: Firmware or version
+      description: Provide the device firmware, backend version, or software version when known.
+      placeholder: Firmware 1.2.3, OpenRazer version, or unknown
+
+  - type: dropdown
+    id: transport
+    attributes:
+      label: Connection or transport
+      options:
+        - USB / HID
+        - 2.4 GHz wireless receiver
+        - Bluetooth
+        - OpenRazer D-Bus
+        - PipeWire / Linux audio stack
+        - Other
+        - Unknown
+        - Not applicable
+    validations:
+      required: true
+
+  - type: input
+    id: operation
+    attributes:
+      label: Operation investigated
+      description: Identify the capability, command, state, or behavior you investigated.
+      placeholder: Polling-rate write and read-back
+    validations:
+      required: true
+
+  - type: textarea
+    id: observation
+    attributes:
+      label: Observed behavior
+      description: Describe exactly what you observed without presenting assumptions as facts.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction or test procedure
+      description: Explain the setup and steps needed to repeat the observation.
+      placeholder: |
+        1. Connect ...
+        2. Send or run ...
+        3. Read or observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: captured_data
+    attributes:
+      label: Sanitized request, response, or captured data
+      description: Include only relevant sanitized data. Do not post secrets, pairing material, personal data, or unrelated traffic.
+      render: text
+
+  - type: dropdown
+    id: confidence
+    attributes:
+      label: Confidence level
+      description: Choose the strength of the evidence, not how certain the conclusion feels.
+      options:
+        - Confirmed — reproduced consistently with direct evidence
+        - Strong evidence — reproduced or corroborated, with a remaining uncertainty
+        - Hypothesis — plausible interpretation that needs testing
+        - Unknown — observation recorded without a conclusion
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Test environment
+      description: Include relevant hardware, receiver, connection, OS/kernel, and backend/library versions.
+      placeholder: |
+        OS / kernel:
+        Device and receiver:
+        Connection:
+        Backend or library versions:
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional_notes
+    attributes:
+      label: Additional notes
+      description: Add references, limitations, or follow-up experiments.
+
+  - type: checkboxes
+    id: sensitive_data
+    attributes:
+      label: Sensitive-data check
+      options:
+        - label: I sanitized secrets, pairing material, personal data, unnecessary identifiers, and unrelated traffic.
+          required: true

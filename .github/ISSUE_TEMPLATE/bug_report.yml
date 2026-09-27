@@ -1,0 +1,138 @@
+name: Bug report
+description: Report a reproducible problem with RigCtl.
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve RigCtl. Please include only relevant diagnostic information.
+
+        Daemon logs can be viewed with `journalctl --user -u rigctld`. Remove credentials, Bluetooth pairing material, private identifiers, personal data, and unrelated captured traffic before posting.
+
+  - type: input
+    id: summary
+    attributes:
+      label: Problem summary
+      description: Briefly describe the problem.
+      placeholder: Mouse profile application reports success, but the DPI does not change.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected subsystem or component
+      options:
+        - CLI
+        - Daemon
+        - IPC
+        - Configuration / Profiles
+        - Mouse — Razer Viper V3 HyperSpeed
+        - Keyboard — Ajazz AK820 MAX
+        - Audio — PipeWire EQ
+        - Audio — Crusher ANC 2
+        - Packaging / Linux integration
+        - Quickshell UI (later)
+        - Fan control (later)
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect RigCtl to do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead? Include exact error messages when relevant.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Provide the shortest sequence that reproduces the problem.
+      placeholder: |
+        1. Start from ...
+        2. Run ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: reproducibility
+    attributes:
+      label: Reproducibility
+      options:
+        - Always
+        - Often
+        - Sometimes
+        - Happened once
+        - Unable to reproduce reliably
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: RigCtl version or commit
+      description: Provide a release version or Git commit hash.
+      placeholder: 0.1.0 or abc1234
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Linux environment
+      description: Include relevant Omarchy / Arch Linux, kernel, session, and package-version information.
+      placeholder: |
+        OS: Omarchy / Arch Linux
+        Kernel:
+        Session:
+        Relevant package versions:
+    validations:
+      required: true
+
+  - type: input
+    id: hardware
+    attributes:
+      label: Relevant hardware or device
+      description: Include the exact model and firmware version when known. Use “Not applicable” for non-hardware issues.
+      placeholder: Razer Viper V3 HyperSpeed; firmware unknown
+
+  - type: input
+    id: connection
+    attributes:
+      label: Connection or backend
+      description: If applicable, identify the connection or backend involved.
+      placeholder: USB/HID, 2.4 GHz receiver, Bluetooth, OpenRazer D-Bus, or PipeWire
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant daemon logs
+      description: Paste only the relevant excerpt from `journalctl --user -u rigctld`. Remove sensitive or unrelated data.
+      render: shell
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context
+      description: Add screenshots or other information that materially helps explain the problem.
+
+  - type: checkboxes
+    id: sensitive_data
+    attributes:
+      label: Sensitive-data check
+      options:
+        - label: I removed credentials, pairing material, personal data, unnecessary identifiers, and unrelated captured traffic.
+          required: true
