@@ -1,0 +1,1 @@
+//! Shared IPC data contracts for RigCtl.
