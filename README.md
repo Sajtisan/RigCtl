@@ -155,4 +155,4 @@ The project is designed so most daemon, IPC, configuration, and error-handling b
 
 ## License
 
-MIT
+[MIT](./LICENSE-MIT)
