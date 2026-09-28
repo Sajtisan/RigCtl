@@ -51,7 +51,6 @@ body:
       label: Hardware or protocol impact
       description: Does this request require device-specific work or new protocol research?
       options:
-        - None
         - Uses existing supported hardware behavior
         - Requires additional research for an existing target device
         - Proposes support for new hardware
