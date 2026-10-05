@@ -1,9 +1,9 @@
-use std::{error::Error, fmt};
+use std::{error::Error, fmt, io};
 
-use rigctl_ipc::Request;
-use tokio::io::{AsyncRead, BufReader};
+use rigctl_ipc::{Request, Response};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 
-use super::framing::{FrameError, read_frame};
+use super::framing::{FrameError, MAX_MESSAGE_SIZE, read_frame};
 
 #[derive(Debug)]
 pub enum RequestReadError {
@@ -17,7 +17,6 @@ impl fmt::Display for RequestReadError {
             Self::Frame(error) => {
                 write!(f, "IPC framing error: {error}")
             }
-
             Self::InvalidJson(error) => {
                 write!(f, "invalid IPC JSON: {error}")
             }
@@ -39,6 +38,43 @@ impl From<serde_json::Error> for RequestReadError {
     }
 }
 
+#[derive(Debug)]
+pub enum ResponseWriteError {
+    Io(io::Error),
+    Serialize(serde_json::Error),
+    MessageTooLarge,
+}
+
+impl fmt::Display for ResponseWriteError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Io(error) => {
+                write!(f, "IPC write error: {error}")
+            }
+            Self::Serialize(error) => {
+                write!(f, "failed to serialize IPC response: {error}")
+            }
+            Self::MessageTooLarge => {
+                write!(f, "IPC response exceeds the 1 MiB limit")
+            }
+        }
+    }
+}
+
+impl Error for ResponseWriteError {}
+
+impl From<io::Error> for ResponseWriteError {
+    fn from(error: io::Error) -> Self {
+        Self::Io(error)
+    }
+}
+
+impl From<serde_json::Error> for ResponseWriteError {
+    fn from(error: serde_json::Error) -> Self {
+        Self::Serialize(error)
+    }
+}
+
 pub(crate) async fn read_request<R>(
     reader: &mut BufReader<R>,
 ) -> Result<Option<Request>, RequestReadError>
@@ -54,6 +90,25 @@ where
     Ok(Some(request))
 }
 
+pub(crate) async fn write_response<W>(
+    writer: &mut W,
+    response: &Response,
+) -> Result<(), ResponseWriteError>
+where
+    W: AsyncWrite + Unpin,
+{
+    let message = serde_json::to_vec(response)?;
+
+    if message.len() > MAX_MESSAGE_SIZE {
+        return Err(ResponseWriteError::MessageTooLarge);
+    }
+
+    writer.write_all(&message).await?;
+    writer.write_all(b"\n").await?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -61,7 +116,7 @@ mod tests {
     #[tokio::test]
     async fn parses_valid_request() {
         let input =
-        b"{\"version\":1,\"type\":\"request\",\"id\":42,\"method\":\"mouse.dpi.set\",\"params\":{\"dpi\":800}}\n";
+            b"{\"version\":1,\"type\":\"request\",\"id\":42,\"method\":\"mouse.dpi.set\",\"params\":{\"dpi\":800}}\n";
 
         let mut reader = BufReader::new(&input[..]);
 
@@ -73,7 +128,6 @@ mod tests {
         assert_eq!(request.version, 1);
         assert_eq!(request.id, 42);
         assert_eq!(request.method, "mouse.dpi.set");
-
         assert_eq!(request.params.get("dpi"), Some(&serde_json::json!(800)),);
     }
 
@@ -93,7 +147,7 @@ mod tests {
     #[tokio::test]
     async fn rejects_wrong_message_type() {
         let input =
-        b"{\"version\":1,\"type\":\"event\",\"id\":42,\"method\":\"mouse.dpi.get\",\"params\":{}}\n";
+            b"{\"version\":1,\"type\":\"event\",\"id\":42,\"method\":\"mouse.dpi.get\",\"params\":{}}\n";
 
         let mut reader = BufReader::new(&input[..]);
 
