@@ -6,3 +6,9 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+rigctl-ipc = { path = "../rigctl-ipc" }
+serde_json.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
