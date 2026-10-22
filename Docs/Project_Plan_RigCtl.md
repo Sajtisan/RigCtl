@@ -35,6 +35,10 @@ This plan may change as development progresses based on hardware limitations, re
 
 Whenever an architectural, scope, stack, or behavior decision is finalized, the affected Markdown documentation should be regenerated so that these documents remain the current source of truth.
 
+Record significant choices and their reasoning in the
+[Development Decisions log](./Development_Decisions_RigCtl.md). Preserve earlier
+decisions when they are superseded so later work can trace why the design changed.
+
 ---
 
 ## Architecture
@@ -192,6 +196,13 @@ Expected responsibilities:
 The daemon should remain small and mostly idle when no continuous work is required.
 
 `rigctld` is not a system-wide root daemon in the initial implementation. Future fan control must not change that initial service scope.
+
+The current lifecycle skeleton provides ordered integration stages for application
+initialization, logging, configuration, persistent state, and independent subsystem
+initialization, then binds the existing IPC listener. These integration stages do
+not yet access configuration, state, or hardware. SIGINT and SIGTERM trigger clean
+shutdown and owned-socket cleanup. Accepting and dispatching requests remain future
+integration work; the skeleton does not serve commands yet.
 
 ---
 
@@ -619,6 +630,11 @@ D-Bus will not be used for RigCtl's own internal IPC. It remains an external bac
 Systemd socket activation is not required for the initial version because `rigctld` is expected to remain active as a lightweight user-level daemon.
 
 Because `$XDG_RUNTIME_DIR` is session-scoped, the IPC socket will be recreated whenever the daemon starts.
+
+The [IPC reference](./IPC_RigCtl.md) contains the detailed wire contract and
+distinguishes implemented transport components from future request handling.
+Use the [hardware research notes](./hardware/README.md) to record evidence before
+promoting device-specific behavior into subsystem requirements.
 
 ---
 
