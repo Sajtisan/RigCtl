@@ -309,6 +309,20 @@ Expected responsibilities:
 
 The daemon should avoid unnecessary polling and remain mostly idle when possible.
 
+The current lifecycle implementation lives in the daemon library, with a thin
+Tokio executable entry point. Production startup registers SIGINT and SIGTERM
+handlers before binding the socket. Tests can provide an explicit runtime directory
+and an injected shutdown future without modifying global environment variables.
+Logging, configuration, state restoration, and individual subsystem initialization
+are placeholders for their separate implementations. The skeleton binds the IPC
+listener but does not yet accept or dispatch requests.
+
+Orderly shutdown closes the listener and removes the socket only if its filesystem
+identity still matches the owned socket. Normal resource drops perform best-effort
+cleanup; explicit shutdown reports cleanup failures. The runtime directory remains.
+An occupied socket path is a startup error, and automatic recovery of stale sockets
+after a crash or SIGKILL is deferred.
+
 A single daemon is preferred over separate background services per subsystem.
 
 The initial daemon is a user-level service, not a system-wide root daemon. The CLI should not need to start it manually before sending requests.
@@ -317,275 +331,18 @@ The initial daemon is a user-level service, not a system-wide root daemon. The C
 
 ## IPC
 
-RigCtl will use Inter-Process Communication (IPC) over a Unix domain stream socket between `rigctld`, the `rigctl` CLI, and the future Quickshell UI.
+RigCtl uses a Unix domain stream socket with UTF-8 JSONL and versioned shared
+contracts. The standard endpoint is `$XDG_RUNTIME_DIR/rigctl/rigctld.sock`.
+`rigctld` owns the endpoint; the CLI and future Quickshell UI are clients.
 
-### Transport, framing, and access control
+The complete specification now lives in the [IPC reference](./IPC_RigCtl.md):
+transport and permissions, request/response/event envelopes, IDs and versions,
+connection behavior, protocol failures, and the planned method vocabulary.
+That reference distinguishes implemented library components from future daemon
+request handling and provides templates for method and event documentation.
 
-```text
-Transport:       Unix domain stream socket
-Location:        $XDG_RUNTIME_DIR/rigctl/rigctld.sock
-Serialization:   JSON
-Framing:         one JSON object per line
-Encoding:        UTF-8
-Message limit:   1 MiB
-```
-
-`rigctld` owns the socket. The `rigctl` CLI and future Quickshell UI connect as clients.
-
-Planned filesystem permissions are:
-
-```text
-$XDG_RUNTIME_DIR/rigctl/                 0700
-$XDG_RUNTIME_DIR/rigctl/rigctld.sock     0600
-```
-
-Unix filesystem permissions are the v1 access-control boundary. No additional authentication token is required for protocol v1.
-
-```text
-                  Quickshell
-                      │
-                      │ UTF-8 JSONL
-                      ▼
-rigctl ── UTF-8 JSONL ──► rigctld
-                              │
-               ┌──────────────┼──────────────┐
-               ▼              ▼              ▼
-             Mouse         Keyboard         Audio
-```
-
-### Protocol envelope and version
-
-The protocol defines three message types:
-
-```text
-request
-response
-event
-```
-
-Every message contains `version` and `type`. The initial IPC protocol version is `1` and is independent from the RigCtl application version.
-
-```rust
-pub const PROTOCOL_VERSION: u32 = 1;
-```
-
-This allows, for example, RigCtl application version `0.4.2` to continue using IPC protocol version `1`.
-
-### Requests
-
-A request contains `version`, `type`, `id`, `method`, and `params`:
-
-```json
-{
-  "version": 1,
-  "type": "request",
-  "id": 42,
-  "method": "mouse.dpi.set",
-  "params": {
-    "dpi": 800
-  }
-}
-```
-
-Request IDs are `u64` values and need to be unique only among outstanding requests on the same connection. Every response includes the matching ID.
-
-IPC methods use dot-separated `subsystem.resource.action` names with snake_case components. Representative v1 names include:
-
-```text
-system.status
-
-mouse.status
-mouse.dpi.get
-mouse.dpi.set
-mouse.polling_rate.get
-mouse.polling_rate.set
-mouse.profile.list
-mouse.profile.current
-mouse.profile.apply
-mouse.profile.create
-mouse.profile.delete
-
-keyboard.status
-keyboard.profile.list
-keyboard.profile.current
-keyboard.profile.apply
-keyboard.keymap.get
-keyboard.remap.set
-
-audio.status
-audio.profile.list
-audio.profile.current
-audio.profile.apply
-audio.profile.create
-audio.profile.delete
-audio.noise_control.get
-audio.noise_control.set
-
-events.subscribe
-```
-
-The shell-facing CLI may use kebab-case, such as `polling-rate`, while the IPC name uses `polling_rate`.
-
-`params` is always a JSON object. A request without arguments uses an empty object rather than omitting the field, using `null`, or using a positional array:
-
-```json
-{
-  "version": 1,
-  "type": "request",
-  "id": 1,
-  "method": "mouse.dpi.get",
-  "params": {}
-}
-```
-
-### Responses
-
-A successful response contains `version`, `type`, `id`, `status`, and `result`:
-
-```json
-{
-  "version": 1,
-  "type": "response",
-  "id": 42,
-  "status": "ok",
-  "result": {
-    "dpi": 800
-  }
-}
-```
-
-`result` should normally be an object even when it contains one value, leaving room for compatible related fields later.
-
-Error responses use the shared RigCtl error model:
-
-```json
-{
-  "version": 1,
-  "type": "response",
-  "id": 42,
-  "status": "error",
-  "error": {
-    "code": "unsupported_value",
-    "message": "Unsupported polling rate: 700 Hz",
-    "details": {
-      "requested": 700,
-      "supported": [125, 500, 1000],
-      "unit": "Hz"
-    }
-  }
-}
-```
-
-A response is exactly one of:
-
-```text
-status = ok
-    └── result
-
-status = error
-    └── error
-```
-
-It must not contain both `result` and `error`.
-
-### Events and subscriptions
-
-`rigctld` may send daemon-originated events to persistent clients. Events have no request ID and use dot-separated names:
-
-```json
-{
-  "version": 1,
-  "type": "event",
-  "event": "mouse.battery.changed",
-  "data": {
-    "percent": 72
-  }
-}
-```
-
-Initial event names may include:
-
-```text
-mouse.connected
-mouse.disconnected
-mouse.battery.changed
-mouse.profile.changed
-
-keyboard.connected
-keyboard.disconnected
-keyboard.profile.changed
-
-audio.output.changed
-audio.profile.changed
-audio.noise_control.changed
-```
-
-Clients do not receive every event automatically. A persistent client subscribes to the exact event names it needs:
-
-```json
-{
-  "version": 1,
-  "type": "request",
-  "id": 1,
-  "method": "events.subscribe",
-  "params": {
-    "events": [
-      "mouse.battery.changed",
-      "audio.profile.changed",
-      "audio.noise_control.changed"
-    ]
-  }
-}
-```
-
-The response returns the accepted exact names in `result.subscribed`. Wildcard subscriptions are not required for v1.
-
-### Connection model
-
-The protocol supports multiple outstanding requests on one connection. Responses are correlated by request ID, and clients must not assume that responses arrive in request order. Events may arrive between responses.
-
-The CLI normally opens a short-lived connection, sends one request, receives its response, and disconnects. The future Quickshell UI may keep one persistent connection for requests and subscribed events. Both use the same protocol.
-
-### Protocol failures
-
-If a request uses an unsupported protocol version but can still be parsed well enough to recover its ID, the daemon returns `protocol_mismatch` in a normal v1 response envelope and reports its supported version in `details`.
-
-If input is valid JSON and follows enough of the envelope to respond, but has a missing required parameter, an unknown method, or an invalid field combination, the daemon returns `invalid_request`.
-
-Malformed JSON without a reliably recoverable request ID does not introduce a second error format. The daemon logs the condition, closes only that client connection, and remains running.
-
-A message exceeding 1 MiB is handled the same way: the daemon logs the condition, closes the offending connection, performs no hardware operation from the partial request, and remains running.
-
-### Rust representation
-
-The stable wire types are defined in the shared `rigctl-ipc` crate and map to Serde-tagged enums or equivalent typed structures for `Request`, `Response`, `Event`, `RigCtlError`, and `ProtocolVersion`. The crate defines the data contract but does not own the socket transport.
-
-### Communication layers
-
-```text
-User
- │
- ▼
-rigctl
- │
- │ Unix socket + JSONL
- ▼
-rigctld
- │
- ├── D-Bus ─────► openrazer-daemon
- ├── HID/USB ───► Ajazz AK820 MAX
- ├── PipeWire ──► Audio EQ processing
- ├── TBD ───────► Crusher ANC 2 control
- └── hwmon ─────► Fan control (later)
-```
-
-D-Bus is not used for RigCtl's own internal IPC. OpenRazer D-Bus is an external backend integration.
-
-Systemd socket activation is not required for the initial version because `rigctld` is expected to remain active as a lightweight user-level daemon.
-
-Because `$XDG_RUNTIME_DIR` is scoped to the user session, the runtime directory and socket will be recreated whenever `rigctld` starts.
-
-The protocol v1 wire format documented above is considered finalized enough for implementation.
+D-Bus remains an external backend transport for OpenRazer. It is not RigCtl's
+internal IPC. Systemd socket activation is not required for the initial daemon.
 
 ---
 
@@ -1866,6 +1623,10 @@ The JSON envelope, `error.code`, and exit-code meanings are stable machine-facin
 ## Testing Strategy
 
 Testing is required throughout the project.
+
+For commands, implemented test scenarios, and current coverage limitations, see
+the [test documentation](./tests/README.md). The strategy below includes planned
+coverage that is not implemented yet.
 
 ### Unit tests
 
